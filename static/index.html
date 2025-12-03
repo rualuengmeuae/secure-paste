@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecurePaste</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
+    <style>
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .toast-enter { opacity: 0; transform: translateY(-20px); }
+        .toast-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s ease-out; }
+        .toast-exit-active { opacity: 0; transition: all 0.2s ease-in; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col md:flex-row overflow-hidden font-sans text-gray-800">
+
+    <!-- 左侧固定栏：操作区 -->
+    <aside class="w-full md:w-[400px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full z-10 shadow-lg">
+
+        <!-- 头部 -->
+        <div class="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <h1 class="text-lg font-bold text-gray-800 tracking-wide">SecurePaste</h1>
+        </div>
+
+        <!-- 可滚动的内容区域 -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-6">
+
+            <!-- 密钥管理 -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">密钥配置</h2>
+                    <button onclick="saveKeys()" class="text-xs text-indigo-600 hover:text-indigo-800 underline">保存配置</button>
+                </div>
+
+                <!-- 公钥输入框 + 复制按钮 -->
+                <div class="flex gap-1">
+                    <input id="pubKey" type="text" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 公钥 (用于加密)...">
+                    <button onclick="copyKeyInput('pubKey')" class="bg-gray-100 hover:bg-gray-200 border border-l-0 border-gray-300 rounded-r px-3 text-gray-500 transition" title="复制公钥">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    </button>
+                </div>
+
+                <!-- 私钥输入框 + 复制按钮 -->
+                <div class="flex gap-1">
+                    <input id="privKey" type="password" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 私钥 (用于解密)...">
+                    <button onclick="copyKeyInput('privKey')" class="bg-gray-100 hover:bg-gray-200 border border-l-0 border-gray-300 rounded-r px-3 text-gray-500 transition" title="复制私钥">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    </button>
+                </div>
+
+                <button onclick="generateKeys()" class="w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded border border-gray-200 transition">
+                    ⚡ 自动生成密钥对 (2048-bit)
+                </button>
+            </div>
+
+            <hr class="border-dashed border-gray-200">
+
+            <!-- 内容发布区 -->
+            <div class="space-y-4">
+                <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">发布新内容</h2>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">备注 (可选)</label>
+                    <input id="remarkInput" type="text" maxlength="20" class="w-full p-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="例如：数据库密码、Wifi配置...">
+                    <p class="text-[10px] text-red-500 mt-1 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        注意：备注会明文传输，请勿填写敏感信息！
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">正文内容</label>
+                    <textarea id="contentInput" rows="8" class="w-full p-2 border border-gray-300 rounded text-sm font-mono focus:ring-1 focus:ring-indigo-500 outline-none resize-none" placeholder="输入要存储的文本..."></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="handleEncryptUpload()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded text-sm font-medium shadow-sm transition flex items-center justify-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        加密发布
+                    </button>
+                    <button onclick="handlePlainUpload()" class="bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-300 py-2 px-4 rounded text-sm font-medium transition flex items-center justify-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        明文发布
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-3 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-400">
+            SecurePaste Hybrid v1.3
+        </div>
+    </aside>
+
+    <!-- 右侧：列表展示区 -->
+    <main class="flex-1 bg-gray-100 flex flex-col h-full min-w-0">
+        <div class="p-4 bg-white border-b border-gray-200 shadow-sm flex justify-between items-center z-10">
+            <h2 class="font-bold text-gray-700 flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                最新粘贴列表
+            </h2>
+            <button onclick="loadList()" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-500" title="刷新列表">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
+        </div>
+
+        <div id="pasteList" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+            <!-- 列表项 JS 生成 -->
+        </div>
+    </main>
+
+    <!-- Toast 容器 -->
+    <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // --- 逻辑部分 ---
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            const styles = {
+                success: 'bg-green-600 text-white shadow-green-200',
+                error: 'bg-red-500 text-white shadow-red-200',
+                info: 'bg-gray-800 text-white shadow-gray-300'
+            };
+
+            toast.className = `${styles[type]} px-4 py-2 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 toast-enter pointer-events-auto min-w-[200px] justify-center`;
+
+            let icon = '';
+            if (type === 'success') icon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            if (type === 'error') icon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+
+            toast.innerHTML = `${icon}<span>${message}</span>`;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-enter-active');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter-active');
+                toast.classList.add('toast-exit-active');
+                setTimeout(() => toast.remove(), 200);
+            }, 2500);
+        }
+
+        window.addEventListener('load', () => {
+            const savedPub = localStorage.getItem('sp_pubKey');
+            const savedPriv = localStorage.getItem('sp_privKey');
+            if (savedPub) document.getElementById('pubKey').value = savedPub;
+            if (savedPriv) document.getElementById('privKey').value = savedPriv;
+            loadList();
+        });
+
+        function generateKeys() {
+            showToast("生成中，请稍候...", "info");
+            setTimeout(() => {
+                const crypt = new JSEncrypt({ default_key_size: 2048 });
+                crypt.getKey();
+                document.getElementById('pubKey').value = crypt.getPublicKey();
+                document.getElementById('privKey').value = crypt.getPrivateKey();
+                showToast("密钥对已生成", "success");
+            }, 100);
+        }
+
+        function saveKeys() {
+            localStorage.setItem('sp_pubKey', document.getElementById('pubKey').value);
+            localStorage.setItem('sp_privKey', document.getElementById('privKey').value);
+            showToast("密钥已保存", "success");
+        }
+
+        // 新增：复制输入框内容函数
+        async function copyKeyInput(elementId) {
+            const input = document.getElementById(elementId);
+            if (!input || !input.value) {
+                showToast("内容为空", "error");
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(input.value);
+                const name = elementId === 'pubKey' ? '公钥' : '私钥';
+                showToast(`${name}已复制`, "success");
+            } catch (err) {
+                showToast("复制失败", "error");
+            }
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast("已复制到剪贴板", "success");
+            } catch (err) {
+                showToast("复制失败", "error");
+            }
+        }
+
+        async function handlePlainUpload() {
+            const content = document.getElementById('contentInput').value;
+            const remark = document.getElementById('remarkInput').value.trim();
+            if (!content) return showToast("内容不能为空", "error");
+
+            if (!confirm("⚠️ 确定要明文上传吗？服务器管理员可见内容。")) return;
+
+            try {
+                const res = await fetch('/api/paste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        remark,
+                        is_encrypted: false
+                    })
+                });
+                if(res.ok) {
+                    showToast("发布成功", "success");
+                    document.getElementById('contentInput').value = '';
+                    document.getElementById('remarkInput').value = '';
+                    loadList();
+                }
+            } catch (e) { showToast("上传失败", "error"); }
+        }
+
+        async function handleEncryptUpload() {
+            const pubKey = document.getElementById('pubKey').value.trim();
+            const text = document.getElementById('contentInput').value;
+            const remark = document.getElementById('remarkInput').value.trim();
+
+            if (!text) return showToast("内容不能为空", "error");
+            if (!pubKey) return showToast("请先配置公钥", "error");
+
+            try {
+                const aesKeyHex = CryptoJS.lib.WordArray.random(32).toString();
+                const ivHex = CryptoJS.lib.WordArray.random(16).toString();
+                const encryptedContent = CryptoJS.AES.encrypt(text, CryptoJS.enc.Hex.parse(aesKeyHex), {
+                    iv: CryptoJS.enc.Hex.parse(ivHex),
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7
+                }).toString();
+
+                const encryptor = new JSEncrypt();
+                encryptor.setPublicKey(pubKey);
+                const encryptedAesKey = encryptor.encrypt(aesKeyHex);
+
+                if (!encryptedAesKey) throw new Error("Key加密失败");
+
+                const res = await fetch('/api/paste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: { ct: encryptedContent, iv: ivHex, ek: encryptedAesKey },
+                        remark: remark,
+                        is_encrypted: true
+                    })
+                });
+
+                if(res.ok) {
+                    showToast("加密发布成功", "success");
+                    document.getElementById('contentInput').value = '';
+                    document.getElementById('remarkInput').value = '';
+                    loadList();
+                }
+
+            } catch (e) { showToast("加密错误: " + e.message, "error"); }
+        }
+
+        async function handleDecryptAndCopy(ct, iv, ek) {
+            const privKey = document.getElementById('privKey').value.trim();
+            if (!privKey) return showToast("请在左侧填写私钥", "error");
+
+            try {
+                const decryptor = new JSEncrypt();
+                decryptor.setPrivateKey(privKey);
+                const aesKeyHex = decryptor.decrypt(ek);
+                if (!aesKeyHex) throw new Error("私钥错误");
+
+                const bytes = CryptoJS.AES.decrypt(ct, CryptoJS.enc.Hex.parse(aesKeyHex), {
+                    iv: CryptoJS.enc.Hex.parse(iv),
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7
+                });
+                const originalText = bytes.toString(CryptoJS.enc.Utf8);
+                if (!originalText) throw new Error("数据损坏");
+
+                copyToClipboard(originalText);
+            } catch (e) { showToast("解密失败", "error"); }
+        }
+
+        async function loadList() {
+            const listEl = document.getElementById('pasteList');
+            listEl.innerHTML = '<div class="text-center text-gray-400 py-10 animate-pulse">正在获取数据...</div>';
+
+            try {
+                const res = await fetch('/api/pastes');
+                const data = await res.json();
+                listEl.innerHTML = '';
+
+                if (data.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                            <p>暂无数据</p>
+                        </div>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const timeStr = new Date(item.timestamp * 1000).toLocaleString('zh-CN', { hour12: false });
+                    const remarkHtml = item.remark
+                        ? `<span class="font-bold text-gray-800 text-sm mr-2">${item.remark}</span>`
+                        : `<span class="italic text-gray-400 text-xs mr-2">无备注</span>`;
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden";
+
+                    if (item.is_encrypted) {
+                        const { ct, iv, ek } = item.content;
+                        card.innerHTML = `
+                            <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">加密</span>
+                                    ${remarkHtml}
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] text-gray-400 font-mono">${timeStr}</span>
+                                    <button class="decrypt-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                                        解密并复制
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-slate-800 relative group cursor-pointer" title="点击也可触发解密">
+                                <p class="text-[10px] text-slate-500 font-mono break-all opacity-60 line-clamp-2 selection:bg-transparent">
+                                    ${ct}
+                                </p>
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20 backdrop-blur-[1px]">
+                                    <span class="text-white text-xs font-bold">🔒 数据已加密存储</span>
+                                </div>
+                            </div>
+                        `;
+                        const runDecrypt = () => handleDecryptAndCopy(ct, iv, ek);
+                        card.querySelector('.decrypt-btn').onclick = (e) => { e.stopPropagation(); runDecrypt(); };
+                        card.querySelector('.p-3').onclick = runDecrypt;
+
+                    } else {
+                        card.innerHTML = `
+                            <div class="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center">
+                                <div class="flex items-center">
+                                    <span class="bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">明文</span>
+                                    ${remarkHtml}
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-[10px] text-gray-400 font-mono">${timeStr}</span>
+                                    <button class="copy-plain-btn text-gray-400 hover:text-gray-700 transition" title="复制内容">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-gray-50 text-xs font-mono text-gray-700 break-all max-h-32 overflow-y-auto content-text"></div>
+                        `;
+                        card.querySelector('.content-text').innerText = item.content;
+                        card.querySelector('.copy-plain-btn').onclick = () => copyToClipboard(item.content);
+                    }
+                    listEl.appendChild(card);
+                });
+
+            } catch (e) {
+                listEl.innerHTML = '<div class="text-center text-red-500 text-sm">加载失败，请检查服务状态</div>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+pydantic
+a2wsgi
+flask
+flask-cors
