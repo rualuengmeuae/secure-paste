@@ -27,7 +27,7 @@ def create_paste():
     if not payload:
         return jsonify({"detail": "Invalid JSON"}), 400
 
-    # 简单的数据校验 (类似于 Pydantic 的功能)
+    # 简单的数据校验
     content = payload.get("content")
     is_encrypted = payload.get("is_encrypted")
     remark = payload.get("remark", "")
@@ -81,8 +81,35 @@ def list_pastes():
     return jsonify(pastes)
 
 
+@app.route("/api/paste/<string:paste_id>", methods=["DELETE"])
+def delete_paste(paste_id):
+    """
+    删除指定 ID 的 Paste。
+    由于文件名包含时间戳前缀，我们需要根据 paste_id 查找文件。
+    """
+    # 安全检查：简单的防止路径遍历（uuid通常是hex字符串）
+    if ".." in paste_id or "/" in paste_id or "\\" in paste_id:
+        return jsonify({"detail": "Invalid ID format"}), 400
+
+    # 查找匹配该 ID 的文件
+    # 文件名格式: {timestamp}_{uuid}.json
+    found_files = list(DATA_DIR.glob(f"*_{paste_id}.json"))
+
+    if not found_files:
+        return jsonify({"detail": "Paste not found"}), 404
+
+    deleted_count = 0
+    try:
+        for file_path in found_files:
+            os.remove(file_path)
+            deleted_count += 1
+    except Exception as e:
+        return jsonify({"detail": f"Failed to delete file: {str(e)}"}), 500
+
+    return jsonify({"status": "success", "deleted_count": deleted_count})
+
+
 # --- 静态文件托管 ---
-# 模拟 FastAPI 的 StaticFiles(html=True) 行为
 
 @app.route('/')
 def serve_index():
@@ -93,15 +120,11 @@ def serve_index():
 @app.route('/<path:path>')
 def serve_static(path):
     """服务其他静态资源"""
-    # 检查文件是否存在，如果不存在则尝试返回 index.html (SPA 常用) 或 404
     if os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
     else:
-        # 如果找不到文件，可以选择返回 404
         return abort(404)
 
 
 if __name__ == "__main__":
-    # Flask 默认是单线程，debug=False 为生产环境建议配置
-    # host='0.0.0.0' 允许外部访问
-    app.run(host="0.0.0.0", port=8070, debug=False)
+    app.run(host="0.0.0.0", port=8071, debug=False)

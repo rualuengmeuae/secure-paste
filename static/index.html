@@ -95,7 +95,7 @@
         </div>
 
         <div class="p-3 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-400">
-            SecurePaste Hybrid v1.3
+            SecurePaste Hybrid v1.4
         </div>
     </aside>
 
@@ -178,7 +178,6 @@
             showToast("密钥已保存", "success");
         }
 
-        // 新增：复制输入框内容函数
         async function copyKeyInput(elementId) {
             const input = document.getElementById(elementId);
             if (!input || !input.value) {
@@ -294,6 +293,24 @@
             } catch (e) { showToast("解密失败", "error"); }
         }
 
+        // 新增：处理删除
+        async function handleDelete(id) {
+            if (!confirm("确定要删除这条内容吗？")) return;
+
+            try {
+                const res = await fetch(`/api/paste/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showToast("删除成功", "success");
+                    loadList();
+                } else {
+                    const data = await res.json();
+                    showToast(data.detail || "删除失败", "error");
+                }
+            } catch (e) {
+                showToast("网络请求失败", "error");
+            }
+        }
+
         async function loadList() {
             const listEl = document.getElementById('pasteList');
             listEl.innerHTML = '<div class="text-center text-gray-400 py-10 animate-pulse">正在获取数据...</div>';
@@ -321,6 +338,13 @@
                     const card = document.createElement('div');
                     card.className = "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden";
 
+                    // 删除按钮 HTML
+                    const deleteBtnHtml = `
+                        <button class="delete-btn text-gray-300 hover:text-red-500 transition px-1" title="删除">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    `;
+
                     if (item.is_encrypted) {
                         const { ct, iv, ek } = item.content;
                         card.innerHTML = `
@@ -329,8 +353,9 @@
                                     <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">加密</span>
                                     ${remarkHtml}
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="text-[10px] text-gray-400 font-mono">${timeStr}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-gray-400 font-mono mr-2">${timeStr}</span>
+                                    ${deleteBtnHtml}
                                     <button class="decrypt-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 transition">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
                                         解密并复制
@@ -349,6 +374,8 @@
                         const runDecrypt = () => handleDecryptAndCopy(ct, iv, ek);
                         card.querySelector('.decrypt-btn').onclick = (e) => { e.stopPropagation(); runDecrypt(); };
                         card.querySelector('.p-3').onclick = runDecrypt;
+                        // 绑定删除事件
+                        card.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); handleDelete(item.id); };
 
                     } else {
                         card.innerHTML = `
@@ -357,8 +384,9 @@
                                     <span class="bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">明文</span>
                                     ${remarkHtml}
                                 </div>
-                                <div class="flex items-center gap-3">
-                                    <span class="text-[10px] text-gray-400 font-mono">${timeStr}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] text-gray-400 font-mono mr-2">${timeStr}</span>
+                                    ${deleteBtnHtml}
                                     <button class="copy-plain-btn text-gray-400 hover:text-gray-700 transition" title="复制内容">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
                                     </button>
@@ -368,6 +396,8 @@
                         `;
                         card.querySelector('.content-text').innerText = item.content;
                         card.querySelector('.copy-plain-btn').onclick = () => copyToClipboard(item.content);
+                        // 绑定删除事件
+                        card.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); handleDelete(item.id); };
                     }
                     listEl.appendChild(card);
                 });
