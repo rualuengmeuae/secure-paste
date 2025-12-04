@@ -8,12 +8,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.3.2/jsencrypt.min.js"></script>
     <style>
-        /* 自定义滚动条样式 */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
         .toast-enter { opacity: 0; transform: translateY(-20px); }
         .toast-enter-active { opacity: 1; transform: translateY(0); transition: all 0.3s ease-out; }
         .toast-exit-active { opacity: 0; transition: all 0.2s ease-in; }
@@ -21,390 +19,386 @@
 </head>
 <body class="bg-gray-100 h-screen flex flex-col md:flex-row overflow-hidden font-sans text-gray-800">
 
-    <!-- 左侧固定栏：操作区 -->
+    <!-- 左侧侧边栏 -->
     <aside class="w-full md:w-[400px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col h-full z-10 shadow-lg">
-
-        <!-- 头部 -->
         <div class="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50">
             <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
             <h1 class="text-lg font-bold text-gray-800 tracking-wide">SecurePaste</h1>
         </div>
 
-        <!-- 可滚动的内容区域 -->
         <div class="flex-1 overflow-y-auto p-5 space-y-6">
-
-            <!-- 密钥管理 -->
+            <!-- 密钥区 -->
             <div class="space-y-3">
                 <div class="flex justify-between items-center">
                     <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">密钥配置</h2>
                     <button onclick="saveKeys()" class="text-xs text-indigo-600 hover:text-indigo-800 underline">保存配置</button>
                 </div>
-
-                <!-- 公钥输入框 + 复制按钮 -->
                 <div class="flex gap-1">
-                    <input id="pubKey" type="text" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 公钥 (用于加密)...">
-                    <button onclick="copyKeyInput('pubKey')" class="bg-gray-100 hover:bg-gray-200 border border-l-0 border-gray-300 rounded-r px-3 text-gray-500 transition" title="复制公钥">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                    </button>
+                    <input id="pubKey" type="text" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 公钥...">
+                    <button onclick="copyKeyInput('pubKey')" class="bg-gray-100 hover:bg-gray-200 border-l-0 border border-gray-300 rounded-r px-3 text-gray-500">📋</button>
                 </div>
-
-                <!-- 私钥输入框 + 复制按钮 -->
                 <div class="flex gap-1">
-                    <input id="privKey" type="password" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 私钥 (用于解密)...">
-                    <button onclick="copyKeyInput('privKey')" class="bg-gray-100 hover:bg-gray-200 border border-l-0 border-gray-300 rounded-r px-3 text-gray-500 transition" title="复制私钥">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                    </button>
+                    <input id="privKey" type="password" class="flex-1 min-w-0 p-2 border border-gray-300 rounded-l text-xs font-mono focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="RSA 私钥...">
+                    <button onclick="copyKeyInput('privKey')" class="bg-gray-100 hover:bg-gray-200 border-l-0 border border-gray-300 rounded-r px-3 text-gray-500">📋</button>
                 </div>
-
-                <button onclick="generateKeys()" class="w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded border border-gray-200 transition">
-                    ⚡ 自动生成密钥对 (2048-bit)
-                </button>
+                <button onclick="generateKeys()" class="w-full py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs rounded border border-gray-200 transition">⚡ 生成密钥对</button>
             </div>
-
             <hr class="border-dashed border-gray-200">
 
-            <!-- 内容发布区 -->
+            <!-- 发布区 -->
             <div class="space-y-4">
-                <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">发布新内容</h2>
-
+                <h2 class="text-sm font-bold text-gray-600 uppercase tracking-wider">发布内容</h2>
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">备注 (可选)</label>
-                    <input id="remarkInput" type="text" maxlength="20" class="w-full p-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="例如：数据库密码、Wifi配置...">
-                    <p class="text-[10px] text-red-500 mt-1 flex items-center gap-1">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                        注意：备注会明文传输，请勿填写敏感信息！
-                    </p>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">标签 (Tag)</label>
+                    <input id="remarkInput" type="text" maxlength="20" class="w-full p-2 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 outline-none" placeholder="选填，明文传输">
                 </div>
-
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">正文内容</label>
-                    <textarea id="contentInput" rows="8" class="w-full p-2 border border-gray-300 rounded text-sm font-mono focus:ring-1 focus:ring-indigo-500 outline-none resize-none" placeholder="输入要存储的文本..."></textarea>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">内容</label>
+                    <textarea id="contentInput" rows="8" class="w-full p-2 border border-gray-300 rounded text-sm font-mono focus:ring-1 focus:ring-indigo-500 outline-none resize-none" placeholder="输入文本..."></textarea>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3 pt-2">
-                    <button onclick="handleEncryptUpload()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded text-sm font-medium shadow-sm transition flex items-center justify-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                        加密发布
-                    </button>
-                    <button onclick="handlePlainUpload()" class="bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-300 py-2 px-4 rounded text-sm font-medium transition flex items-center justify-center gap-1">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                        明文发布
-                    </button>
+                    <button onclick="handleEncryptUpload()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded text-sm font-medium shadow-sm transition">🔒 加密发布</button>
+                    <button onclick="handlePlainUpload()" class="bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-300 py-2 px-4 rounded text-sm font-medium transition">📄 明文发布</button>
                 </div>
             </div>
         </div>
-
-        <div class="p-3 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-400">
-            SecurePaste Hybrid v1.4
-        </div>
+        <div class="p-3 bg-gray-50 border-t border-gray-200 text-center text-xs text-gray-400">SecurePaste Anti-Analysis v2.0</div>
     </aside>
 
-    <!-- 右侧：列表展示区 -->
+    <!-- 右侧列表 -->
     <main class="flex-1 bg-gray-100 flex flex-col h-full min-w-0">
         <div class="p-4 bg-white border-b border-gray-200 shadow-sm flex justify-between items-center z-10">
-            <h2 class="font-bold text-gray-700 flex items-center gap-2">
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                最新粘贴列表
-            </h2>
-            <button onclick="loadList()" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-500" title="刷新列表">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            </button>
+            <h2 class="font-bold text-gray-700">最新列表</h2>
+            <button onclick="loadList()" class="p-2 hover:bg-gray-100 rounded-full transition text-gray-500">🔄</button>
         </div>
-
-        <div id="pasteList" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-            <!-- 列表项 JS 生成 -->
-        </div>
+        <div id="pasteList" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"></div>
     </main>
 
-    <!-- Toast 容器 -->
     <div id="toastContainer" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <script>
-        // --- 逻辑部分 ---
+        // --- 核心配置：混淆与自定义编码 ---
 
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
+        // 1. 自定义 Base64 字符集 (打乱顺序 + 替换符号)
+        // 标准: ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=
+        // 我们的: xM7hK9zAbC3yJ1wEuG5tHsIrFqDpLoNnRmSkQjOiPgOfVeUdTcWaYbXZ02468-_=
+        // 这个映射必须固定
+        const STD_B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+        const CUST_B64 = "-_=DEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ABC";
 
-            const styles = {
-                success: 'bg-green-600 text-white shadow-green-200',
-                error: 'bg-red-500 text-white shadow-red-200',
-                info: 'bg-gray-800 text-white shadow-gray-300'
-            };
-
-            toast.className = `${styles[type]} px-4 py-2 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 toast-enter pointer-events-auto min-w-[200px] justify-center`;
-
-            let icon = '';
-            if (type === 'success') icon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            if (type === 'error') icon = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-
-            toast.innerHTML = `${icon}<span>${message}</span>`;
-            container.appendChild(toast);
-
-            requestAnimationFrame(() => {
-                toast.classList.remove('toast-enter');
-                toast.classList.add('toast-enter-active');
-            });
-
-            setTimeout(() => {
-                toast.classList.remove('toast-enter-active');
-                toast.classList.add('toast-exit-active');
-                setTimeout(() => toast.remove(), 200);
-            }, 2500);
+        function toCustomBase64(stdStr) {
+            let res = "";
+            for (let i = 0; i < stdStr.length; i++) {
+                const idx = STD_B64.indexOf(stdStr[i]);
+                res += (idx !== -1) ? CUST_B64[idx] : stdStr[i];
+            }
+            return res;
         }
 
+        function fromCustomBase64(custStr) {
+            let res = "";
+            for (let i = 0; i < custStr.length; i++) {
+                const idx = CUST_B64.indexOf(custStr[i]);
+                res += (idx !== -1) ? STD_B64[idx] : custStr[i];
+            }
+            return res;
+        }
+
+        // --- 分片上传逻辑 ---
+
+        const CHUNK_SIZE = 7 * 1025; // 切片，避免触发防火墙大包检测
+
+        async function uploadDataInChunks(dataObject) {
+            const jsonStr = JSON.stringify(dataObject);
+            const totalChunks = Math.ceil(jsonStr.length / CHUNK_SIZE);
+
+            showToast(`准备上传: ${totalChunks} 个分片`, "info");
+
+            try {
+                // 1. 初始化
+                const initRes = await fetch('/api/upload/init', { method: 'POST' });
+                const { upload_id } = await initRes.json();
+                if (!upload_id) throw new Error("初始化失败");
+
+                // 2. 并行上传 (限制并发数为 5)
+                const chunks = [];
+                for (let i = 0; i < totalChunks; i++) {
+                    const start = i * CHUNK_SIZE;
+                    const end = start + CHUNK_SIZE;
+                    const chunkData = jsonStr.substring(start, end);
+                    chunks.push({ index: i, data: chunkData });
+                }
+
+                // 简单的并发控制器
+                const batchSize = 5;
+                for (let i = 0; i < chunks.length; i += batchSize) {
+                    const batch = chunks.slice(i, i + batchSize);
+                    await Promise.all(batch.map(chunk =>
+                        fetch('/api/upload/chunk', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                upload_id: upload_id,
+                                index: chunk.index,
+                                data: chunk.data
+                            })
+                        }).then(r => { if (!r.ok) throw new Error("切片上传失败"); })
+                    ));
+                    // 更新进度提示 (可选)
+                    // showToast(`上传进度: ${Math.min((i + batchSize), totalChunks)}/${totalChunks}`, "info");
+                }
+
+                // 3. 完成合并
+                const finishRes = await fetch('/api/upload/finish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ upload_id, total_chunks: totalChunks })
+                });
+
+                if (!finishRes.ok) throw new Error("合并失败");
+                return true;
+
+            } catch (e) {
+                console.error(e);
+                throw e;
+            }
+        }
+
+        // --- UI 与业务逻辑 ---
+
         window.addEventListener('load', () => {
-            const savedPub = localStorage.getItem('sp_pubKey');
-            const savedPriv = localStorage.getItem('sp_privKey');
-            if (savedPub) document.getElementById('pubKey').value = savedPub;
-            if (savedPriv) document.getElementById('privKey').value = savedPriv;
+            const sPub = localStorage.getItem('sp_pubKey');
+            const sPriv = localStorage.getItem('sp_privKey');
+            if (sPub) document.getElementById('pubKey').value = sPub;
+            if (sPriv) document.getElementById('privKey').value = sPriv;
             loadList();
         });
 
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            const colors = { success: 'bg-green-600', error: 'bg-red-500', info: 'bg-gray-800' };
+            t.className = `${colors[type]} px-4 py-2 rounded shadow-lg text-white text-sm toast-enter`;
+            t.innerText = msg;
+            c.appendChild(t);
+            requestAnimationFrame(() => { t.classList.remove('toast-enter'); t.classList.add('toast-enter-active'); });
+            setTimeout(() => { t.classList.remove('toast-enter-active'); t.classList.add('toast-exit-active'); setTimeout(() => t.remove(), 200); }, 3000);
+        }
+
         function generateKeys() {
-            showToast("生成中，请稍候...", "info");
+            showToast("生成中...", "info");
             setTimeout(() => {
-                const crypt = new JSEncrypt({ default_key_size: 2048 });
-                crypt.getKey();
-                document.getElementById('pubKey').value = crypt.getPublicKey();
-                document.getElementById('privKey').value = crypt.getPrivateKey();
-                showToast("密钥对已生成", "success");
-            }, 100);
+                const c = new JSEncrypt({ default_key_size: 2048 });
+                c.getKey();
+                document.getElementById('pubKey').value = c.getPublicKey();
+                document.getElementById('privKey').value = c.getPrivateKey();
+                showToast("生成完成", "success");
+            }, 50);
         }
 
         function saveKeys() {
             localStorage.setItem('sp_pubKey', document.getElementById('pubKey').value);
             localStorage.setItem('sp_privKey', document.getElementById('privKey').value);
-            showToast("密钥已保存", "success");
-        }
-
-        async function copyKeyInput(elementId) {
-            const input = document.getElementById(elementId);
-            if (!input || !input.value) {
-                showToast("内容为空", "error");
-                return;
-            }
-            try {
-                await navigator.clipboard.writeText(input.value);
-                const name = elementId === 'pubKey' ? '公钥' : '私钥';
-                showToast(`${name}已复制`, "success");
-            } catch (err) {
-                showToast("复制失败", "error");
-            }
-        }
-
-        async function copyToClipboard(text) {
-            try {
-                await navigator.clipboard.writeText(text);
-                showToast("已复制到剪贴板", "success");
-            } catch (err) {
-                showToast("复制失败", "error");
-            }
+            showToast("已保存", "success");
         }
 
         async function handlePlainUpload() {
-            const content = document.getElementById('contentInput').value;
-            const remark = document.getElementById('remarkInput').value.trim();
-            if (!content) return showToast("内容不能为空", "error");
+            const text = document.getElementById('contentInput').value;
+            const note = document.getElementById('remarkInput').value.trim();
+            if (!text) return showToast("内容为空", "error");
+            if (!confirm("⚠️ 警告：明文上传对服务器可见。")) return;
 
-            if (!confirm("⚠️ 确定要明文上传吗？服务器管理员可见内容。")) return;
+            // 构造混淆的 Payload
+            const payload = {
+                mode: 0,           // 0 = plain
+                note: note,        // remark -> note
+                raw_text: text     // content -> raw_text
+            };
 
             try {
-                const res = await fetch('/api/paste', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content,
-                        remark,
-                        is_encrypted: false
-                    })
-                });
-                if(res.ok) {
-                    showToast("发布成功", "success");
-                    document.getElementById('contentInput').value = '';
-                    document.getElementById('remarkInput').value = '';
-                    loadList();
-                }
-            } catch (e) { showToast("上传失败", "error"); }
+                await uploadDataInChunks(payload);
+                showToast("发布成功", "success");
+                document.getElementById('contentInput').value = '';
+                document.getElementById('remarkInput').value = '';
+                loadList();
+            } catch (e) { showToast("上传失败: " + e.message, "error"); }
         }
 
         async function handleEncryptUpload() {
             const pubKey = document.getElementById('pubKey').value.trim();
             const text = document.getElementById('contentInput').value;
-            const remark = document.getElementById('remarkInput').value.trim();
+            const note = document.getElementById('remarkInput').value.trim();
 
-            if (!text) return showToast("内容不能为空", "error");
-            if (!pubKey) return showToast("请先配置公钥", "error");
-
-            try {
-                const aesKeyHex = CryptoJS.lib.WordArray.random(32).toString();
-                const ivHex = CryptoJS.lib.WordArray.random(16).toString();
-                const encryptedContent = CryptoJS.AES.encrypt(text, CryptoJS.enc.Hex.parse(aesKeyHex), {
-                    iv: CryptoJS.enc.Hex.parse(ivHex),
-                    mode: CryptoJS.mode.CBC,
-                    padding: CryptoJS.pad.Pkcs7
-                }).toString();
-
-                const encryptor = new JSEncrypt();
-                encryptor.setPublicKey(pubKey);
-                const encryptedAesKey = encryptor.encrypt(aesKeyHex);
-
-                if (!encryptedAesKey) throw new Error("Key加密失败");
-
-                const res = await fetch('/api/paste', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content: { ct: encryptedContent, iv: ivHex, ek: encryptedAesKey },
-                        remark: remark,
-                        is_encrypted: true
-                    })
-                });
-
-                if(res.ok) {
-                    showToast("加密发布成功", "success");
-                    document.getElementById('contentInput').value = '';
-                    document.getElementById('remarkInput').value = '';
-                    loadList();
-                }
-
-            } catch (e) { showToast("加密错误: " + e.message, "error"); }
-        }
-
-        async function handleDecryptAndCopy(ct, iv, ek) {
-            const privKey = document.getElementById('privKey').value.trim();
-            if (!privKey) return showToast("请在左侧填写私钥", "error");
+            if (!text || !pubKey) return showToast("缺内容或公钥", "error");
 
             try {
-                const decryptor = new JSEncrypt();
-                decryptor.setPrivateKey(privKey);
-                const aesKeyHex = decryptor.decrypt(ek);
-                if (!aesKeyHex) throw new Error("私钥错误");
+                // 1. AES 加密
+                const aesKey = CryptoJS.lib.WordArray.random(32).toString();
+                const iv = CryptoJS.lib.WordArray.random(16).toString();
 
-                const bytes = CryptoJS.AES.decrypt(ct, CryptoJS.enc.Hex.parse(aesKeyHex), {
+                // CryptoJS 默认输出标准 Base64，我们需要它输出 Hex 或 Base64 均可，
+                // 但为了统一混淆，我们先拿到标准 Base64 结果
+                const encrypted = CryptoJS.AES.encrypt(text, CryptoJS.enc.Hex.parse(aesKey), {
                     iv: CryptoJS.enc.Hex.parse(iv),
                     mode: CryptoJS.mode.CBC,
                     padding: CryptoJS.pad.Pkcs7
                 });
-                const originalText = bytes.toString(CryptoJS.enc.Utf8);
-                if (!originalText) throw new Error("数据损坏");
 
-                copyToClipboard(originalText);
+                const stdCt = encrypted.toString(); // 标准 Base64 Ciphertext
+
+                // 2. RSA 加密 Key
+                const encryptor = new JSEncrypt();
+                encryptor.setPublicKey(pubKey);
+                const stdEk = encryptor.encrypt(aesKey); // 标准 Base64 Encrypted Key
+
+                if (!stdEk) throw new Error("Key加密失败");
+
+                // 3. 转码 (Obfuscation Encoding)
+                const custCt = toCustomBase64(stdCt);
+                const custEk = toCustomBase64(stdEk);
+                // IV 是 Hex 字符串 (CryptoJS产生的)，我们直接用，或者也转码？
+                // iv.toString() 通常是 Hex。为了彻底混淆，先把 Hex 转 B64，再转 Custom B64。
+                // 简化起见，我们直接存 Hex，字段名混淆即可，毕竟 IV 看起来像随机 ID。
+                // 或者：这里我们直接用 Hex 字符串作为 ID。
+
+                // 4. 构造混淆 Payload
+                // ct -> sys_blob
+                // iv -> ref_id
+                // ek -> sess_token
+                const payload = {
+                    mode: 1, // 1 = encrypted
+                    note: note,
+                    sys_data: {
+                        sys_blob: custCt,
+                        ref_id: iv,      // 保持 Hex
+                        sess_token: custEk
+                    }
+                };
+
+                await uploadDataInChunks(payload);
+                showToast("加密发布成功", "success");
+                document.getElementById('contentInput').value = '';
+                document.getElementById('remarkInput').value = '';
+                loadList();
+
+            } catch (e) { showToast("错误: " + e.message, "error"); }
+        }
+
+        async function handleDecryptAndCopy(sysData) {
+            const privKey = document.getElementById('privKey').value.trim();
+            if (!privKey) return showToast("请填写私钥", "error");
+
+            try {
+                const { sys_blob, ref_id, sess_token } = sysData;
+
+                // 1. 逆转混淆编码 (Custom B64 -> Std B64)
+                const stdEk = fromCustomBase64(sess_token);
+                const stdCt = fromCustomBase64(sys_blob);
+                const ivHex = ref_id;
+
+                // 2. RSA 解密
+                const decryptor = new JSEncrypt();
+                decryptor.setPrivateKey(privKey);
+                const aesKeyHex = decryptor.decrypt(stdEk);
+                if (!aesKeyHex) throw new Error("私钥解密失败");
+
+                // 3. AES 解密
+                const bytes = CryptoJS.AES.decrypt(stdCt, CryptoJS.enc.Hex.parse(aesKeyHex), {
+                    iv: CryptoJS.enc.Hex.parse(ivHex),
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7
+                });
+                const originalText = bytes.toString(CryptoJS.enc.Utf8);
+                if (!originalText) throw new Error("内容损坏");
+
+                await navigator.clipboard.writeText(originalText);
+                showToast("解密并复制成功", "success");
             } catch (e) { showToast("解密失败", "error"); }
         }
 
-        // 新增：处理删除
         async function handleDelete(id) {
-            if (!confirm("确定要删除这条内容吗？")) return;
-
+            if (!confirm("确认删除？")) return;
             try {
-                const res = await fetch(`/api/paste/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    showToast("删除成功", "success");
-                    loadList();
-                } else {
-                    const data = await res.json();
-                    showToast(data.detail || "删除失败", "error");
-                }
-            } catch (e) {
-                showToast("网络请求失败", "error");
-            }
+                await fetch(`/api/paste/${id}`, { method: 'DELETE' });
+                showToast("已删除", "success");
+                loadList();
+            } catch (e) { showToast("删除失败", "error"); }
+        }
+
+        async function copyKeyInput(id) {
+            const val = document.getElementById(id).value;
+            if(val) { await navigator.clipboard.writeText(val); showToast("已复制", "success"); }
         }
 
         async function loadList() {
             const listEl = document.getElementById('pasteList');
-            listEl.innerHTML = '<div class="text-center text-gray-400 py-10 animate-pulse">正在获取数据...</div>';
-
+            listEl.innerHTML = '<div class="text-center text-gray-400 py-4">Loading...</div>';
             try {
                 const res = await fetch('/api/pastes');
                 const data = await res.json();
                 listEl.innerHTML = '';
 
-                if (data.length === 0) {
-                    listEl.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-64 text-gray-400">
-                            <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                            <p>暂无数据</p>
-                        </div>`;
+                if(!data.length) {
+                    listEl.innerHTML = '<div class="text-center text-gray-400 py-10">暂无数据</div>';
                     return;
                 }
 
                 data.forEach(item => {
-                    const timeStr = new Date(item.timestamp * 1000).toLocaleString('zh-CN', { hour12: false });
-                    const remarkHtml = item.remark
-                        ? `<span class="font-bold text-gray-800 text-sm mr-2">${item.remark}</span>`
-                        : `<span class="italic text-gray-400 text-xs mr-2">无备注</span>`;
+                    const time = new Date((item.server_ts || 0) * 1000).toLocaleString();
+                    const note = item.note || '无标签';
+                    const isEnc = item.mode === 1;
 
                     const card = document.createElement('div');
-                    card.className = "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden";
+                    card.className = "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition overflow-hidden";
 
-                    // 删除按钮 HTML
-                    const deleteBtnHtml = `
-                        <button class="delete-btn text-gray-300 hover:text-red-500 transition px-1" title="删除">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
+                    let contentArea = '';
+                    if (isEnc) {
+                        contentArea = `
+                            <div class="p-3 bg-slate-800 cursor-pointer group relative" title="点击解密">
+                                <p class="text-[10px] text-slate-500 font-mono break-all opacity-50 line-clamp-2">
+                                    ${item.sys_data.sys_blob.substring(0, 100)}...
+                                </p>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="text-slate-300 text-xs font-bold">🔒 Encrypted Blob</span>
+                                </div>
+                            </div>`;
+                    } else {
+                        contentArea = `
+                            <div class="p-3 bg-gray-50 text-xs font-mono text-gray-700 break-all max-h-32 overflow-y-auto cursor-pointer plain-text" title="点击复制">
+                                ${(item.raw_text || '').substring(0, 200)}...
+                            </div>`;
+                    }
+
+                    card.innerHTML = `
+                        <div class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                            <div class="flex items-center gap-2">
+                                <span class="${isEnc ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'} text-[10px] font-bold px-1.5 rounded">${isEnc ? 'SEC' : 'RAW'}</span>
+                                <span class="font-bold text-gray-700 text-xs">${note}</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-gray-400">
+                                <span class="text-[10px] font-mono">${time}</span>
+                                <button class="del-btn hover:text-red-500">✕</button>
+                            </div>
+                        </div>
+                        ${contentArea}
                     `;
 
-                    if (item.is_encrypted) {
-                        const { ct, iv, ek } = item.content;
-                        card.innerHTML = `
-                            <div class="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                                <div class="flex items-center">
-                                    <span class="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">加密</span>
-                                    ${remarkHtml}
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-gray-400 font-mono mr-2">${timeStr}</span>
-                                    ${deleteBtnHtml}
-                                    <button class="decrypt-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded flex items-center gap-1 transition">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-                                        解密并复制
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="p-3 bg-slate-800 relative group cursor-pointer" title="点击也可触发解密">
-                                <p class="text-[10px] text-slate-500 font-mono break-all opacity-60 line-clamp-2 selection:bg-transparent">
-                                    ${ct}
-                                </p>
-                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20 backdrop-blur-[1px]">
-                                    <span class="text-white text-xs font-bold">🔒 数据已加密存储</span>
-                                </div>
-                            </div>
-                        `;
-                        const runDecrypt = () => handleDecryptAndCopy(ct, iv, ek);
-                        card.querySelector('.decrypt-btn').onclick = (e) => { e.stopPropagation(); runDecrypt(); };
-                        card.querySelector('.p-3').onclick = runDecrypt;
-                        // 绑定删除事件
-                        card.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); handleDelete(item.id); };
+                    const delBtn = card.querySelector('.del-btn');
+                    delBtn.onclick = (e) => { e.stopPropagation(); handleDelete(item.server_id); };
 
+                    if (isEnc) {
+                        card.querySelector('.bg-slate-800').onclick = () => handleDecryptAndCopy(item.sys_data);
                     } else {
-                        card.innerHTML = `
-                            <div class="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center">
-                                <div class="flex items-center">
-                                    <span class="bg-gray-200 text-gray-600 text-[10px] font-bold px-1.5 py-0.5 rounded mr-2">明文</span>
-                                    ${remarkHtml}
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-gray-400 font-mono mr-2">${timeStr}</span>
-                                    ${deleteBtnHtml}
-                                    <button class="copy-plain-btn text-gray-400 hover:text-gray-700 transition" title="复制内容">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="p-3 bg-gray-50 text-xs font-mono text-gray-700 break-all max-h-32 overflow-y-auto content-text"></div>
-                        `;
-                        card.querySelector('.content-text').innerText = item.content;
-                        card.querySelector('.copy-plain-btn').onclick = () => copyToClipboard(item.content);
-                        // 绑定删除事件
-                        card.querySelector('.delete-btn').onclick = (e) => { e.stopPropagation(); handleDelete(item.id); };
+                        card.querySelector('.plain-text').onclick = async () => {
+                            await navigator.clipboard.writeText(item.raw_text);
+                            showToast("已复制", "success");
+                        };
                     }
+
                     listEl.appendChild(card);
                 });
 
-            } catch (e) {
-                listEl.innerHTML = '<div class="text-center text-red-500 text-sm">加载失败，请检查服务状态</div>';
-            }
+            } catch (e) { listEl.innerHTML = '<div class="text-center text-red-400">加载错误</div>'; }
         }
     </script>
 </body>
