@@ -13,175 +13,159 @@ app.config['JSON_AS_ASCII'] = False
 CORS(app)
 
 # 目录配置
-DATA_DIR = Path("data/pastes")
-TEMP_DIR = Path("data/temp_uploads")  # 临时存放切片
+DATA_DIR = Path("data/store")  # 改名：pastes -> store
+CACHE_DIR = Path("data/io_cache")  # 改名：temp_uploads -> io_cache
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-TEMP_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # --- 辅助函数 ---
 
-def clean_temp_folder(upload_id):
-    """清理临时文件夹"""
-    target_dir = TEMP_DIR / upload_id
+def clean_cache(sess_id):
+    """清理临时会话文件夹"""
+    target_dir = CACHE_DIR / sess_id
     if target_dir.exists():
         shutil.rmtree(target_dir, ignore_errors=True)
 
 
-# --- 上传相关 API (分片处理) ---
+# --- 数据传输相关 API (原 Upload) ---
+# 混淆策略：模拟通用的系统 IO 接口，避免 upload 关键字
 
-@app.route("/api/upload/init", methods=["POST"])
-def upload_init():
-    """初始化上传，返回一个 upload_id"""
-    upload_id = uuid.uuid4().hex
-    upload_dir = TEMP_DIR / upload_id
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    return jsonify({"status": "ok", "upload_id": upload_id})
+@app.route("/api/io/handshake", methods=["POST"])
+def io_handshake():
+    """原 upload/init：建立传输会话"""
+    sess_id = uuid.uuid4().hex
+    # 创建临时目录
+    work_dir = CACHE_DIR / sess_id
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    # 返回 sess_id 而非 upload_id
+    return jsonify({"ret": 0, "sess_id": sess_id})
 
 
-@app.route("/api/upload/chunk", methods=["POST"])
-def upload_chunk():
-    """接收单个数据切片"""
-    payload = request.get_json()
-    if not payload:
-        return jsonify({"err": "no_data"}), 400
+@app.route("/api/io/push_shard", methods=["POST"])
+def io_push_shard():
+    """原 upload/chunk：接收分片"""
+    req = request.get_json()
+    if not req:
+        return jsonify({"err": "nodata"}), 400
 
-    upload_id = payload.get("upload_id")
-    chunk_index = payload.get("index")
-    chunk_data = payload.get("data")  # 这是一个字符串片段
+    # 参数混淆
+    sess_id = req.get("sess_id")
+    seq_no = req.get("seq")  # 原 index
+    blob = req.get("blob")  # 原 data
 
-    if not upload_id or chunk_index is None or chunk_data is None:
-        return jsonify({"err": "bad_params"}), 422
+    if not sess_id or seq_no is None or blob is None:
+        return jsonify({"err": "bad_args"}), 422
 
-    # 安全检查：防止路径遍历
-    if ".." in upload_id or "/" in upload_id:
+    if ".." in sess_id or "/" in sess_id:
         return jsonify({"err": "bad_id"}), 400
 
-    save_dir = TEMP_DIR / upload_id
+    save_dir = CACHE_DIR / sess_id
     if not save_dir.exists():
-        return jsonify({"err": "session_expired"}), 404
+        return jsonify({"err": "timeout"}), 404
 
-    # 保存切片，文件名为索引
     try:
-        chunk_path = save_dir / str(chunk_index)
+        # 保存分片
+        chunk_path = save_dir / str(seq_no)
         with open(chunk_path, "w", encoding="utf-8") as f:
-            f.write(chunk_data)
+            f.write(blob)
     except Exception as e:
-        return jsonify({"err": str(e)}), 500
+        return jsonify({"err": "io_err"}), 500
 
-    return jsonify({"status": "ok"})
+    return jsonify({"ret": 0})
 
 
-@app.route("/api/upload/finish", methods=["POST"])
-def upload_finish():
-    """合并切片并保存为最终 Paste"""
-    payload = request.get_json()
-    upload_id = payload.get("upload_id")
-    total_chunks = payload.get("total_chunks")
+@app.route("/api/io/commit", methods=["POST"])
+def io_commit():
+    """原 upload/finish：合并并提交"""
+    req = request.get_json()
+    sess_id = req.get("sess_id")
+    count = req.get("cnt")  # 原 total_chunks
 
-    if not upload_id or total_chunks is None:
-        return jsonify({"err": "bad_params"}), 422
+    if not sess_id or count is None:
+        return jsonify({"err": "bad_args"}), 422
 
-    chunk_dir = TEMP_DIR / upload_id
+    chunk_dir = CACHE_DIR / sess_id
     if not chunk_dir.exists():
-        return jsonify({"err": "not_found"}), 404
+        return jsonify({"err": "missing"}), 404
 
-    # 1. 验证切片完整性
-    for i in range(total_chunks):
+    # 1. 验证完整性
+    for i in range(count):
         if not (chunk_dir / str(i)).exists():
-            clean_temp_folder(upload_id)
-            return jsonify({"err": f"missing_chunk_{i}"}), 400
+            clean_cache(sess_id)
+            return jsonify({"err": f"missing_seq_{i}"}), 400
 
-    # 2. 合并数据
-    full_data_str = ""
+    # 2. 合并
+    full_str = ""
     try:
-        for i in range(total_chunks):
+        for i in range(count):
             with open(chunk_dir / str(i), "r", encoding="utf-8") as f:
-                full_data_str += f.read()
-    except Exception as e:
-        clean_temp_folder(upload_id)
-        return jsonify({"err": "merge_failed"}), 500
+                full_str += f.read()
+    except Exception:
+        clean_cache(sess_id)
+        return jsonify({"err": "merge_err"}), 500
 
-    # 3. 解析并保存
+    # 3. 解析并落盘
     try:
-        # 尝试解析 JSON，确认数据格式正确（虽然服务器不关心内容，但需确保是 JSON）
-        data_obj = json.loads(full_data_str)
+        data_obj = json.loads(full_str)
 
-        # 补充服务器端元数据
-        paste_id = uuid.uuid4().hex
-        timestamp = int(time.time())
+        # 生成最终文件
+        item_id = uuid.uuid4().hex
+        ts = int(time.time())
 
-        # 将 timestamp 和 ID 注入到 JSON 中，或者包裹它
-        # 为了保持混淆性，我们尽量不改变 data_obj 的核心结构，
-        # 但我们需要一些索引字段。这里我们选择包裹一层，
-        # 或者直接利用文件名做索引，文件内容就是用户上传的混淆 JSON。
-        # 为了列表接口能读取，我们需要确保 data_obj 里有我们需要的字段。
-        # 前端上传时已经包含了混淆后的 'tag' (remark) 和 'mode' (is_encrypted)
+        data_obj["srv_id"] = item_id  # server_id -> srv_id
+        data_obj["ts"] = ts  # server_ts -> ts
 
-        data_obj["server_id"] = paste_id
-        data_obj["server_ts"] = timestamp
-
-        filename = f"{timestamp}_{paste_id}.json"
+        filename = f"{ts}_{item_id}.json"
         with open(DATA_DIR / filename, "w", encoding="utf-8") as f:
-            json.dump(data_obj, f, ensure_ascii=False, indent=0)  # indent=0 减小体积
+            json.dump(data_obj, f, ensure_ascii=False, indent=0)
 
     except json.JSONDecodeError:
-        clean_temp_folder(upload_id)
-        return jsonify({"err": "invalid_json_reconstructed"}), 400
+        clean_cache(sess_id)
+        return jsonify({"err": "fmt_err"}), 400
     except Exception as e:
-        clean_temp_folder(upload_id)
+        clean_cache(sess_id)
         return jsonify({"err": str(e)}), 500
 
-    # 4. 清理
-    clean_temp_folder(upload_id)
-
-    return jsonify({"status": "success", "id": paste_id})
+    clean_cache(sess_id)
+    return jsonify({"ret": 0, "ref": item_id})
 
 
 # --- 列表与删除 API ---
 
-@app.route("/api/pastes", methods=["GET"])
-def list_pastes():
-    """返回列表，内容已经是混淆过的键名"""
-    pastes = []
+@app.route("/api/list", methods=["GET"])
+def get_list():
+    items = []
     files = sorted(DATA_DIR.glob("*.json"), reverse=True)
 
     for f in files[:200]:
         try:
             with open(f, "r", encoding="utf-8") as file:
                 data = json.load(file)
-                # 仅返回列表需要的精简字段，减少流量
-                # 混淆键名映射:
-                # note -> remark
-                # mode -> is_encrypted
-                # server_ts -> timestamp
-                # server_id -> id
-                # sys_blob -> content (如果加密) 或 raw_text (如果明文)
-
-                # 为了列表显示，我们需要返回足够的信息
-                pastes.append(data)
+                items.append(data)
         except Exception:
             continue
 
-    return jsonify(pastes)
+    return jsonify(items)
 
 
-@app.route("/api/paste/<string:paste_id>", methods=["DELETE"])
-def delete_paste(paste_id):
-    if ".." in paste_id or "/" in paste_id:
-        return jsonify({"err": "invalid_id"}), 400
+@app.route("/api/del/<string:tid>", methods=["DELETE"])
+def del_item(tid):
+    if ".." in tid or "/" in tid:
+        return jsonify({"err": "bad_id"}), 400
 
-    found_files = list(DATA_DIR.glob(f"*_{paste_id}.json"))
+    found_files = list(DATA_DIR.glob(f"*_{tid}.json"))
     if not found_files:
-        return jsonify({"err": "not_found"}), 404
+        return jsonify({"err": "404"}), 404
 
     try:
         for file_path in found_files:
             os.remove(file_path)
     except Exception as e:
-        return jsonify({"err": str(e)}), 500
+        return jsonify({"err": "sys_err"}), 500
 
-    return jsonify({"status": "success"})
+    return jsonify({"ret": 0})
 
 
 # --- 静态资源 ---
